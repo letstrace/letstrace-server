@@ -33,7 +33,7 @@ const app = express();
 if (process.env.NODE_ENV !== 'production') {
 	app.use(logger('dev'));
 }
-app.use(bodyParser.json());
+app.use(bodyParser.json({limit: '16MB'}));
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // gzip compression

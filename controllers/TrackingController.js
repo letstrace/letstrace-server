@@ -22,7 +22,7 @@ exports.getData = [
 	}
 ];
 
-function validLat(lat)  {
+function validLat(lat) {
 	return isFinite(lat) && Math.abs(lat) <= 90;
 }
 
@@ -74,3 +74,44 @@ exports.saveData = [
 		});
 	}
 ];
+
+/**
+ * Saving simplified location data
+ *
+ * @param {Object[]}    points
+ * @param {Date}        points[].createdDate
+ * @param {Date}        points[].timeLogged
+ * @param {number}      points[].latitude
+ * @param {number}      points[].longitude
+ * @param {boolean}     points[].verified
+ * @param {string}      points[].uploadIdentifier
+ *
+ */
+exports.saveSimplifiedData = (points) => {
+	const LOCATION_FIXED_POINT = 4;
+	const toFixedPoint = value => value.toFixed(LOCATION_FIXED_POINT);
+	const simplifiedPoints = {}; // `${lat},${lng}` => {point}
+
+	points.forEach(point => {
+		const latLng = `${toFixedPoint(point.latitude)},${toFixedPoint(point.longitude)}`;
+		const existedPoint = simplifiedPoints[latLng];
+		if (existedPoint) {
+			simplifiedPoints[latLng].timeLogged.push(point.timeLogged);
+		} else {
+			simplifiedPoints[latLng] = {
+				timeLogged: [point.timeLogged],
+				verified: point.verified,
+				uploadIdentifier: point.uploadIdentifier,
+				location: {
+					type: 'Point',
+					coordinates: [
+						toFixedPoint(point.latitude),
+						toFixedPoint(point.longitude)
+					]
+				}
+			}
+		}
+
+		// insert
+	});
+};

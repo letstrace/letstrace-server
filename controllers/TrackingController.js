@@ -22,11 +22,11 @@ exports.getData = [
 ];
 
 function validLat(lat) {
-	return isFinite(lat) && Math.abs(lat) <= 90;
+	return typeof lat === 'number' && isFinite(lat) && Math.abs(lat) <= 90;
 }
 
 function validLng(lng) {
-	return isFinite(lng) && Math.abs(lng) <= 180;
+	return typeof lng === 'number' && isFinite(lng) && Math.abs(lng) <= 180;
 }
 
 /**
@@ -89,9 +89,6 @@ const saveSimplifiedData = (points) => {
 exports.saveData = [
 	body('points', 'points needs to be array.').isArray(),
 	body('points', 'points cannot be empty.').isLength({ min: 1 }),
-	body('points.*.latitude', 'latitude invalid.').isFloat().custom(validLat),
-	body('points.*.longitude', 'longitude invalid.').isFloat().custom(validLng),
-	body('points.*.time', 'time invalid.').isFloat(),
 	(req, res) => {
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
@@ -101,7 +98,10 @@ exports.saveData = [
 		const points = req.body.points;
 		const identifier = uuid.v4();
 		const pointsToInsert = points.filter(point => {
-			return !isNaN((new Date(point.time)).getTime());
+			console.log(point);
+			return !isNaN((new Date(point.time)).getTime())
+				&& validLat(point.latitude)
+				&& validLng(point.longitude);
 		}).map((point) => {
 			return {
 				createdDate: createdDate,
@@ -112,6 +112,9 @@ exports.saveData = [
 				uploadIdentifier: identifier
 			};
 		});
+		if (pointsToInsert.length === 0) {
+			return apiResponse.ErrorResponse(res, `Nothing to insert`);
+		}
 		LocationPoint.collection.insertMany(pointsToInsert, (err, docs) => {
 			if (err) {
 				return apiResponse.ErrorResponse(res, `failed ${err}`);

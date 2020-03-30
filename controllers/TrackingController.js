@@ -1,8 +1,7 @@
 const LocationPoint = require('../models/LocationPointModel');
+const SimplifiedLocationPoint = require('../models/SimplifiedLocationPointModel');
 const { body, validationResult } = require('express-validator');
-const { sanitizeBody } = require('express-validator');
 const apiResponse = require('../helpers/apiResponse');
-const auth = require('../middlewares/jwt');
 const uuid = require('uuid');
 const mongoose = require('mongoose');
 mongoose.set('useFindAndModify', false);
@@ -29,6 +28,54 @@ function validLat(lat) {
 function validLng(lng) {
 	return isFinite(lng) && Math.abs(lng) <= 180;
 }
+
+/**
+ * Saving simplified location data
+ *
+ * @param {Object[]}    points
+ * @param {Date}        points[].createdDate
+ * @param {Date}        points[].timeLogged
+ * @param {number}      points[].latitude
+ * @param {number}      points[].longitude
+ * @param {boolean}     points[].verified
+ * @param {string}      points[].uploadIdentifier
+ *
+ */
+const saveSimplifiedData = (points) => {
+	// const startDate = new Date();
+	const LOCATION_FIXED_POINT = 4;
+	const toFixedPoint = value => value.toFixed(LOCATION_FIXED_POINT);
+	const simplifiedPoints = {}; // `${lat},${lng}` => {point}
+	const createdDate = new Date();
+	points.forEach(point => {
+		const latLng = `${toFixedPoint(point.latitude)},${toFixedPoint(point.longitude)}`;
+		const existedPoint = simplifiedPoints[latLng];
+		if (existedPoint) {
+			simplifiedPoints[latLng].timeLogged.push(point.timeLogged);
+		} else {
+			simplifiedPoints[latLng] = {
+				createdDate: createdDate,
+				timeLogged: [point.timeLogged],
+				verified: point.verified,
+				uploadIdentifier: point.uploadIdentifier,
+				location: {
+					type: 'Point',
+					coordinates: [
+						toFixedPoint(point.latitude),
+						toFixedPoint(point.longitude)
+					]
+				}
+			}
+		}
+	});
+	// console.log(`massage: ${((new Date()).getTime() - startDate.getTime()) / 1000}`);
+	SimplifiedLocationPoint.collection.insertMany(Object.values(simplifiedPoints), (err, docs) => {
+		if (err) {
+			// TODO: log error
+		}
+		// console.log(`done: ${((new Date()).getTime() - startDate.getTime()) / 1000}`);
+	});
+};
 
 /**
  * Saving location data
@@ -59,7 +106,7 @@ exports.saveData = [
 			return {
 				createdDate: createdDate,
 				timeLogged: new Date(point.time),
-				latitude: point.longitude,
+				latitude: point.latitude,
 				longitude: point.longitude,
 				verified: false,
 				uploadIdentifier: identifier
@@ -70,48 +117,7 @@ exports.saveData = [
 				return apiResponse.ErrorResponse(res, `failed ${err}`);
 			}
 			apiResponse.successResponse(res, 'saved');
-
+			saveSimplifiedData(pointsToInsert);
 		});
 	}
 ];
-
-/**
- * Saving simplified location data
- *
- * @param {Object[]}    points
- * @param {Date}        points[].createdDate
- * @param {Date}        points[].timeLogged
- * @param {number}      points[].latitude
- * @param {number}      points[].longitude
- * @param {boolean}     points[].verified
- * @param {string}      points[].uploadIdentifier
- *
- */
-exports.saveSimplifiedData = (points) => {
-	const LOCATION_FIXED_POINT = 4;
-	const toFixedPoint = value => value.toFixed(LOCATION_FIXED_POINT);
-	const simplifiedPoints = {}; // `${lat},${lng}` => {point}
-
-	points.forEach(point => {
-		const latLng = `${toFixedPoint(point.latitude)},${toFixedPoint(point.longitude)}`;
-		const existedPoint = simplifiedPoints[latLng];
-		if (existedPoint) {
-			simplifiedPoints[latLng].timeLogged.push(point.timeLogged);
-		} else {
-			simplifiedPoints[latLng] = {
-				timeLogged: [point.timeLogged],
-				verified: point.verified,
-				uploadIdentifier: point.uploadIdentifier,
-				location: {
-					type: 'Point',
-					coordinates: [
-						toFixedPoint(point.latitude),
-						toFixedPoint(point.longitude)
-					]
-				}
-			}
-		}
-
-		// insert
-	});
-};

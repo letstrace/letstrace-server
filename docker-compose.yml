@@ -1,0 +1,16 @@
+version: "3.6"
+services:
+  web:
+    build: .
+    command: sh -c "npm install && npm run dev"
+    environment:
+      MONGODB_URL: "mongodb://mongo:27017/dev"
+      NODE_ENV: "development"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ".:/app"
+      # HACK: use node_modules from inside image instead of one on local machine
+      - "/app/node_modules"
+  mongo:
+    image: "mongo:4.2"

@@ -1,4 +1,4 @@
-# Let's Trace Server
+# Let's Trace Server
 
 ## Development environment
 
